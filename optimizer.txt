@@ -1,0 +1,256 @@
+optimizer
+
+[참고] http://cs231n.github.io/neural-networks-3/
+[참고 - MNIST의 CNN 모델 기반 TensorFlow Optimizer 성능 비교 분석] http://journalhome.ap-northeast-2.elasticbeanstalk.com/journals/jatr/digital-library/manuscript/file/23/JATR-2017-2-1-002.pdf
+[참고] https://www.tensorflow.org/api_guides/python/train#Optimizers
+------------------------------------------------------------------------------------------------------------------------
+요약
+tf.train.GradientDescentOptimizer: Gradient Descent 에서는 네트워크 파라미터들에 대해 기울기의 반대 방향으로 일정 크기 만큼 이동해내는 것을 반복하여 loss 함수의 값을 최소화하는 네트워크 파라미터들의 값을 찾는다.
+tf.train.AdadeltaOptimizer:
+tf.train.AdagradOptimizer
+tf.train.AdagradDAOptimizer
+tf.train.MomentumOptimizer
+tf.train.AdamOptimizer
+tf.train.FtrlOptimizer
+tf.train.ProximalGradientDescentOptimizer
+tf.train.ProximalAdagradOptimizer
+tf.train.RMSPropOptimizer
+------------------------------------------------------------------------------------------------------------------------
+Gradient Descent Optimizer
+
+Gradient Descent Optimizer는 Neural Network의 가장 기본적인 학습 방법으로, Neural Network에서 내놓은 결과값과 실제 결과값의 차이를 정의하는 Loss 함수를 최소화 하기 위하여 기울기를 이용하는 방법이다.
+Gradient Descent 에서는 네트워크 파라미터들에 대해 기울기의 반대 방향으로 일정 크기 만큼 이동해내는 것을 반복하여 loss 함수의 값을 최소화하는 네트워크 파라미터들의 값을 찾는다.
+
+Gradient Descent의 경우 learning rate값에 따라 local minima에 빠지거나, 발산하는 경우가 있다.
+Local minima문제는 loss 함수 값을 최소화 시키는 최적의 네트워크 파라미터를 찾는 문제에 있어서 지역적으로 홀들이 존재하여 local minima에 빠질 경우 전역적인 최적의 파라미터를 찾기 힘들게 되는 문제를 말한다.
+따라서, learning rate는 학습을 위한 입력 데이터의 크기에따라 적절한 learning rate 값을 결정해아 하며, 이를 통하여 loss함수의 값을 최소화 시킬 수 있는 네트워크 파리미터 값을 찾는 것이 중요하다.
+
+Gradient Descent는 loss 함수를 계산할 때 전체 train 데이터 셋을 사용하게 된다.
+따라서, 전체 train 데이터 셋에 대한 계산을 한 뒤에 네트워크 파라미터를 업데이트 하기 때문에 계산 량이 너무 커 최적화된 네트워크 파라미터를 찾아가는 속도가 느려 현재는 거의 쓰이지 않고 있다.
+
+theta = theta - learning_rate * gradient
+
+tf.train.GradientDescentOptimizer
+__init__(
+    learning_rate,
+    use_locking=False,
+    name='GradientDescent'
+)
+learning_rate: A Tensor or a floating point value. The learning rate to use.
+use_locking: If True use locks for update operations.
+name: Optional name prefix for the operations created when applying gradients. Defaults to "GradientDescent".
+
+------------------------------------------------------------------------------------------------------------------------
+Momentum
+Momentum은 기존의 Gradient Descent를 통해 이동하는 과정에 일종의 관성의 원리를 추가하는 것이다.
+Momentum은 구현과 원리가 매우 간단하면서 Gradient Descent 보다 좋은 성능을 내는 것으로 알려져 있다.
+관성의 원리를 추가한다는 것은 이전 계산에 의해 나온 기울기를 일정한 크기만큼 반영하여 새로운 기울기와 합하여 사용하는 것이다.
+즉, 기존의 기울기를 일정 부분 유지하면서 새로운 기울기를 적용하여, 관성과 같은 효과를 주는 방법이다.
+
+v(t)  = momentum * v(t-1) + learning_rate * gradient
+theta = theta - v(t)
+
+accumulation = momentum * accumulation + gradient
+variable -= learning_rate * accumulation
+
+tf.train.MomentumOptimizer
+__init__(
+    learning_rate,
+    momentum,
+    use_locking=False,
+    name='Momentum',
+    use_nesterov=False
+)
+learning_rate: A Tensor or a floating point value. The learning rate.
+momentum: A Tensor or a floating point value. The momentum.
+use_locking: If True use locks for update operations.
+name: Optional name prefix for the operations created when applying gradients. Defaults to "Momentum".
+use_nesterov: If True use Nesterov Momentum. See Sutskever et al., 2013. This implementation always computes gradients at the value of the variable(s) passed to the optimizer. Using Nesterov Momentum makes the variable(s) track the values called theta_t + mu*v_t in the paper.
+
+
+[Sutskever et al., 2013] http://jmlr.org/proceedings/papers/v28/sutskever13.pdf
+
+
+------------------------------------------------------------------------------------------------------------------------
+Adagrad
+Adagrad는 시간에 따른 그래디언트 제곱값을 추적해 학습률을 조정하는 알고리즘입니다.
+잘 업데이트되지 않는 파라메터의 학습률을 높이기 때문에 스파스한 데이터에서 특히 유용하게 쓰입니다.
+
+Adagrad는 네트워크 파라미터를 업데이트 할 때 iteration이 반복 될때, 각 변수의 step size를 다르게 설정하여 이동하는 방법이다.
+Adagrad는 현재까지 각 변수의 변화 값이 작은 경우 변수들의 step size를 크게 설정하고, 이와 반대로 각 변수의 변화 값이 큰 경우 변수의 step size를 줄이는 방법이다.
+자주 등장 하고 변화 값이 큰 변수의 경우 최적화 값에 가까이 있을 확률이 높기 때문에 작은 크기로 이동하면서 세밀한 값을 조정해야 하며,
+변화 값이 작은 변수의 경우 최적화 값에 도달하기 위해서는 더 많은 이동이필요할 확률이 높기 때문에 빠르게 loss 함수 값을 줄이는 방향으로 이동하려는 방법이다.
+
+Adagrad를 사용하게 되면 학습을 진행하는 동안, learning rate decay에 대한 고려를 하지 않아도 된다는 장점이 있다.
+그러나 Adagrad에서는 학습을 진행 할 수록 learning rate 값이 너무 줄어드는 문제가 존재한다
+
+G(t) = G(t-1) + gradient^2
+theta(t+1) = theta(t) - learning_rate * gradient / sqrt(G(t)+입실론)
+
+Neural Network의 파라미터가 k개일 때, G(t)는 k 차원의 벡터로서 iteration의 time step t 까지 각 변수가 이동한 기울기의 제곱 합을 저장한다.
+θ를 업데이트하는 상황에서 learning rate 값을 나타내는 η에 Gt의 루트 값에 반비례한 크기로 이동을 진행하도록 하여
+지금까지 많이 변화한 변수일 수록 적게 이동하게 하며, 적게 변화한 변수일 수록 많이 이동하도록 한다.
+이때, 입실론은 G(t) 값이 작아지면서 0으로 나누어지는 것을 방지하기 위하여 10^-4 ~ 10^-8 정도의 작은 값을 나타낸다.
+
+
+[2011] http://www.jmlr.org/papers/volume12/duchi11a/duchi11a.pdf
+
+tf.train.AdagradOptimizer
+
+__init__(
+    learning_rate,
+    initial_accumulator_value=0.1,
+    use_locking=False,
+    name='Adagrad'
+)
+learning_rate: A Tensor or a floating point value. The learning rate.
+initial_accumulator_value: A floating point value. Starting value for the accumulators, must be positive.
+use_locking: If True use locks for update operations.
+name: Optional name prefix for the operations created when applying gradients. Defaults to "Adagrad".
+
+
+
+tf.train.AdagradDAOptimizer
+
+This optimizer takes care of regularization of unseen features in a mini batch by updating them when they are seen with a closed form update rule that is equivalent to having updated them on every mini-batch.
+AdagradDA is typically used when there is a need for large sparsity in the trained model.
+This optimizer only guarantees sparsity for linear models.
+Be careful when using AdagradDA for deep networks as it will require careful initialization of the gradient accumulators for it to train.
+
+__init__(
+    learning_rate,
+    global_step,
+    initial_gradient_squared_accumulator_value=0.1,
+    l1_regularization_strength=0.0,
+    l2_regularization_strength=0.0,
+    use_locking=False,
+    name='AdagradDA'
+)
+
+learning_rate: A Tensor or a floating point value. The learning rate.
+global_step: A Tensor containing the current training step number.
+initial_gradient_squared_accumulator_value: A floating point value. Starting value for the accumulators, must be positive.
+l1_regularization_strength: A float value, must be greater than or equal to zero.
+l2_regularization_strength: A float value, must be greater than or equal to zero.
+use_locking: If True use locks for update operations.
+name: Optional name prefix for the operations created when applying gradients. Defaults to "AdagradDA".
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+Adadelta
+Adadelta는 Adagrad를 개선하기 위해 제안된 방법으로, 하이퍼파라메터에 덜 민감하고 학습률을 너무 빨리 떨어뜨리지 않도록 막습니다.
+
+Adadelta는 Adagrad의 단점을 극복하기 위하여 개발된 최적화 알고리즘이다. 이를 위하여, G값을 구할 때 합을 구하는 대신 지수 평균을 이용하여 구하는 방법이다.
+Adadelta는 Adagrad와 다르게 learning rate 값을 단순히 η으로 사용하는 대신 learning rate의 변화 값에 제곱을 가지고 지수 평균 값을 이용하여 loss함수를 최적화 시키는 네트워크 파라미터의 값을 구하게 된다.
+Adadelta의 수식은 다음과 같다.
+...pass
+
+
+[2012] https://arxiv.org/pdf/1212.5701v1.pdf?bcsi_scan_f48ea128b316325d=oIsT645kdD5Dwxn658SfZynswfpIAAAAT7N+KQ==&bcsi_scan_filename=1212.5701v1.pdf
+
+tf.train.AdadeltaOptimizer
+__init__(
+    learning_rate=0.001,
+    rho=0.95,
+    epsilon=1e-08,
+    use_locking=False,
+    name='Adadelta'
+)
+learning_rate: A Tensor or a floating point value. The learning rate. To match the exact form in the original paper use 1.0.
+rho: A Tensor or a floating point value. The decay rate.
+epsilon: A Tensor or a floating point value. A constant epsilon used to better conditioning the grad update.
+use_locking: If True use locks for update operations.
+name: Optional name prefix for the operations created when applying gradients. Defaults to "Adadelta".
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+RMSProp
+RMSProp은 Adagrad와 비슷한 최적화 알고리즘으로, 감쇠항을 추가해 학습률이 너무 빨리 떨어지는 단점을 보완했습니다.
+
+RMSProp 는 Adagrad의 단점을 보완하기 위하여 Adadelta와 함께 제안된 방법이다.
+Adagrad의 수식에서는 기울기의 제곱 값을 더해 나가면서 Gt를 구하기 때문에 learning rate의 값이 작아지기 때문에 전체적으로 거의 움직이지 않는 단점이 존재한다.
+RMSProp는 Gt를 구하는 과정에서 제곱 합을 이용하는 것이 아니라, 지수평균으로 바꾸어 구하는 방법이다.
+지수평균으로 대체할 경우 Gt가 무한정 커지지 않으며, 최근 변화 량의 변수간 상대적인 크기 차이를 유지할 수 있다.
+RMSProp를 수식으로 나타내면 다음과 같다.
+
+G(t) = gamma*G(t-1) + (1-gamma)*gradient^2
+theta(t+1) = theta(t) - learning_rate * gradient / sqrt(G(t)+epsilon)
+
+위 수식과 같이 γ값을 이용하여 이전 G값을 반영하여 기울기 제곱의 지수 평균 값을 구하게 된다.
+따라서 Adagrad와 마찬가지로 learning rate decay 에 대한 고려가 필요 없으며, learning rate의 값이 너무 작아지는 단점 또한 지수 평균을 이용하여 보완하였다.
+
+RMSProp는 Adagrad 보다 좋은 학습결과를 나타내며, Adagrad의 단점을 보완한 Adadelta 보다도 더 나은 학습 결과를 나타내고 있다. 또한 RMSProp는 momentum을 적용할 수 있다.
+momentum 상수를 적용함으로써 이전 기울기에 대한 이동 벡터를 적용할 수 있어 현재 Adam Optimizer와 함께 많이 사용되고 있다.
+
+
+tf.train.RMSPropOptimizer
+__init__(
+    learning_rate,
+    decay=0.9,
+    momentum=0.0,
+    epsilon=1e-10,
+    use_locking=False,
+    centered=False,
+    name='RMSProp'
+)
+learning_rate: A Tensor or a floating point value. The learning rate.
+decay: Discounting factor for the history/coming gradient
+momentum: A scalar tensor.
+epsilon: Small value to avoid zero denominator.
+use_locking: If True use locks for update operation.
+centered: If True, gradients are normalized by the estimated variance of the gradient; if False, by the uncentered second moment. Setting this to True may help with training, but is slightly more expensive in terms of computation and memory. Defaults to False.
+name: Optional name prefix for the operations created when applying gradients. Defaults to "RMSProp"
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+Adam
+Adam은 RMSProp과 비슷한 최적화 알고리즘으로, 파라메터 업데이트를 그래디언트의 평균과 분산으로부터 직접 추정하고 편향(bias) 조정항을 추가했습니다.
+Adam은 RMSProp와 Momentum의 장점을 합친 최적화 알고리즘이다.
+Adam은 Momentum과 유사하게 지금까지 학습이 진행 되며 계산된 기울기의 지수 평균을 저장하며, RMSProp와 유사하게 기울기의 제곱 값의 지수 평균을 저장한다.
+기울기의 지수평균과 기울기의 제곱 값의 지수 평균은 다음과 같이 나타낸다
+
+m(t) = beta1*m(t-1) + (1-beta1)*gradient
+v(t) = beta2*v(t-1) + (1-beta2)*gradient^2
+
+위 수식과 같이 m과 v가 계산되지만, m과 v는 학습 초기에 0으로 초기화 되어 있기 때문에
+학습의 초반부에 mt, vt가 0에 가깝게 bias가 설정되어 있기때문에 이를 unbiased 하게 만들어주는 작업을 거친다.
+다음과 같은 보정을 통해 unbiased된 값을 통하여 기울기가 들어갈 자리에 m'(t),G(t)가 들어갈 자리에 v'(t) 를 넣어 계산을 진행한다.
+
+m'(t) = m(t) / (1-beta1(t))
+v'(t) = v(t) / (1-beta2(t))
+
+theta(t) = theta(t-1) - learning_rate * m'(t) / sqrt(v'(t) + epsilon)
+
+Adam은 RMSProp와 Momentum의 방법을 동시에 이용하기 때문에 현재 Neural Network 학습에서 많이 사용되는 Optimizer 이며, Adam은 Adagrad와 마찬가지로 learning rate decay에 대한 고려가 필요없다.
+그 이유는 learning rate를 1/2씩 exponential 하게 줄여주는 기능을 수행하고 있기 때문이다.
+실제 학습 결과에서도 자동으로 learning rate decay에 대한 고려가 들어간 학습의 최적화 알고리즘이 더 나은결과를 보여주기 때문이다.
+
+
+[2014] http://arxiv.org/pdf/1412.6980.pdf
+
+tf.train.AdamOptimizer
+__init__(
+    learning_rate=0.001,
+    beta1=0.9,
+    beta2=0.999,
+    epsilon=1e-08,
+    use_locking=False,
+    name='Adam'
+)
+learning_rate: A Tensor or a floating point value. The learning rate.
+beta1: A float value or a constant float tensor. The exponential decay rate for the 1st moment estimates.
+beta2: A float value or a constant float tensor. The exponential decay rate for the 2nd moment estimates.
+epsilon: A small constant for numerical stability. This epsilon is "epsilon hat" in the Kingma and Ba paper (in the formula just before Section 2.1), not the epsilon in Algorithm 1 of the paper.
+use_locking: If True use locks for update operations.
+name: Optional name for the operations created when applying gradients. Defaults to "Adam".
+
+
+------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------
